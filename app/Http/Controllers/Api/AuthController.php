@@ -8,9 +8,46 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
+use OpenApi\Attributes as OA;
 
 class AuthController extends Controller
 {
+    #[OA\Post(
+        path: '/login',
+        operationId: 'login',
+        summary: 'Authenticate user and obtain access token',
+        tags: ['Authentication'],
+        requestBody: new OA\RequestBody(
+            required: true,
+            content: new OA\JsonContent(
+                required: ['email', 'password'],
+                properties: [
+                    new OA\Property(property: 'email', type: 'string', format: 'email', example: 'organizer@example.com'),
+                    new OA\Property(property: 'password', type: 'string', format: 'password', example: 'password'),
+                ],
+            ),
+        ),
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Login successful',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Login successful'),
+                        new OA\Property(property: 'token_type', type: 'string', example: 'Bearer'),
+                        new OA\Property(property: 'access_token', type: 'string'),
+                        new OA\Property(property: 'expires_in', type: 'integer', example: 15768000),
+                        new OA\Property(property: 'user', ref: '#/components/schemas/User'),
+                    ],
+                ),
+            ),
+            new OA\Response(
+                response: 422,
+                description: 'Invalid credentials',
+                content: new OA\JsonContent(ref: '#/components/schemas/ValidationError'),
+            ),
+        ],
+    )]
     public function login(Request $request): JsonResponse
     {
         $credentials = $request->validate([
@@ -37,6 +74,25 @@ class AuthController extends Controller
         ]);
     }
 
+    #[OA\Post(
+        path: '/logout',
+        operationId: 'logout',
+        summary: 'Revoke the current access token',
+        security: [['passport' => []]],
+        tags: ['Authentication'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Logged out successfully',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'message', type: 'string', example: 'Logged out successfully'),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+        ],
+    )]
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()?->revoke();
@@ -46,6 +102,25 @@ class AuthController extends Controller
         ]);
     }
 
+    #[OA\Get(
+        path: '/me',
+        operationId: 'me',
+        summary: 'Get the authenticated user profile',
+        security: [['passport' => []]],
+        tags: ['Authentication'],
+        responses: [
+            new OA\Response(
+                response: 200,
+                description: 'Authenticated user',
+                content: new OA\JsonContent(
+                    properties: [
+                        new OA\Property(property: 'user', ref: '#/components/schemas/User'),
+                    ],
+                ),
+            ),
+            new OA\Response(response: 401, description: 'Unauthenticated'),
+        ],
+    )]
     public function me(Request $request): JsonResponse
     {
         return response()->json([
